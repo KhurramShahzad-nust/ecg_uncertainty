@@ -268,7 +268,7 @@ def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     case studies, high uncertainty wrong, low uncertainty wrong
     """
 
-    with open('tmp/model_pred_prob.pkl', 'rb') as fin:
+    with open('data/model_pred_prob_nodata.pkl', 'rb') as fin:
         res = pickle.load(fin)
     ecg_data = res['test_data']
 
