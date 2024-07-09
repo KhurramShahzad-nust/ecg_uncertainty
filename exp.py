@@ -72,7 +72,7 @@ def plot_ecg(data, title='', fs=500):
     return fig
 
 def get_report(gt, pred):
-    tmp_report = classification_report(y_true, y_pred, zero_division=1)
+    tmp_report = classification_report(gt, pred, zero_division=1, output_dict=True)
     label_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     f1_list = []
     for i in label_list:
@@ -182,156 +182,92 @@ def exp1(model_uncertainty, expected_data_uncertainty, final_gt, final_pred, f1_
         i_expected_data_uncertainty = np.mean(expected_data_uncertainty[selected])
         row = [i, label_map[i], np.sum(selected), i_model_uncertainty, i_expected_data_uncertainty, f1_list[i]]
         df.append(row)
-    df = pd.DataFrame(df, columns=['class', 'name', 'samples', 'Model uncertainty', 'Data uncertainty', 'F1'])
+    
+    df = pd.DataFrame(df, columns=['class', 'label', 'number', 'model uncertainty', 'data uncertainty', 'f1-score'])
     print(df)
-    df.to_csv('img/info.csv', index=False)
-    
-    for i in range(9):
-        tmp_model_uncertainty_correct = model_uncertainty[np.logical_and(final_gt==i, final_gt==final_pred)]
-        tmp_model_uncertainty_wrong = model_uncertainty[np.logical_and(final_gt==i, final_gt!=final_pred)]
-        tmp_data_uncertainty_correct = expected_data_uncertainty[np.logical_and(final_gt==i, final_gt==final_pred)]
-        tmp_data_uncertainty_wrong = expected_data_uncertainty[np.logical_and(final_gt==i, final_gt!=final_pred)]
-        _, p_model = ttest_ind(tmp_model_uncertainty_correct, tmp_model_uncertainty_wrong)
-        _, p_data = ttest_ind(tmp_data_uncertainty_correct, tmp_data_uncertainty_wrong)
+    df.to_csv('output/uncertainty.csv')
 
-        fig, ax = plt.subplots(1,2)
-        ax[0].boxplot([tmp_model_uncertainty_correct, tmp_model_uncertainty_wrong], widths=0.75)
-        ax[0].set_ylabel('Model uncertainty', fontsize=16)
-        ax[0].set_xticklabels(['Correct', 'Wrong'], fontsize=16)
-        ax[0].set_title('{}, p={:.4e}'.format(label_map[i], p_model))
-        ax[1].boxplot([tmp_data_uncertainty_correct, tmp_data_uncertainty_wrong], widths=0.75)
-        ax[1].set_ylabel('Data uncertainty', fontsize=16)
-        ax[1].set_xticklabels(['Correct', 'Wrong'], fontsize=16)
-        ax[1].set_title('{}, p={:.4e}'.format(label_map[i], p_data))
-        plt.tight_layout()
-        plt.savefig('img/box_{}.pdf'.format(label_map[i]))
+def exp2(total_uncertainty, model_uncertainty, expected_data_uncertainty, final_gt, final_pred, f1_list):
+    """
+    how the overall f1 score changes with respect to model/data uncertainty
+    """
+    number_of_bins = 10
+
+    def get_mean_score(final_gt, final_pred, idx):
+        return np.mean(np.array(final_gt)==np.array(final_pred)), np.mean(get_report(np.array(final_gt)[idx], np.array(final_pred)[idx]))
+
+    total_uncertainty_idx = np.argsort(total_uncertainty)
+    model_uncertainty_idx = np.argsort(model_uncertainty)
+    data_uncertainty_idx = np.argsort(expected_data_uncertainty)
+
+    total_uncertainty_bin_acc = []
+    model_uncertainty_bin_acc = []
+    data_uncertainty_bin_acc = []
+
+    total_uncertainty_bin_f1 = []
+    model_uncertainty_bin_f1 = []
+    data_uncertainty_bin_f1 = []
+
+    bin_size = len(total_uncertainty) // number_of_bins
+    for i in range(number_of_bins):
+        idx = total_uncertainty_idx[i*bin_size:(i+1)*bin_size]
+        total_uncertainty_bin_acc.append(get_mean_score(final_gt, final_pred, idx)[0])
+        total_uncertainty_bin_f1.append(get_mean_score(final_gt, final_pred, idx)[1])
         
-def exp2(final_uncertainty, all_thresh):
-    """
-    accept_ratio vs F1, by different threshold, using final_uncertainty
-    """
-    all_ratio_accept = []
-    all_f1 = []
-    for thresh in all_thresh:
-        reject_idx = final_uncertainty > thresh
-        accept_idx = ~reject_idx
-        ratio_reject = np.sum(reject_idx)/len(reject_idx)
-        ratio_accept = 1 - ratio_reject
-        all_ratio_accept.append(ratio_accept)
-        tmp_f1 = get_report(final_gt[accept_idx], final_pred[accept_idx])
-        all_f1.append(np.mean(tmp_f1))
+        idx = model_uncertainty_idx[i*bin_size:(i+1)*bin_size]
+        model_uncertainty_bin_acc.append(get_mean_score(final_gt, final_pred, idx)[0])
+        model_uncertainty_bin_f1.append(get_mean_score(final_gt, final_pred, idx)[1])
+        
+        idx = data_uncertainty_idx[i*bin_size:(i+1)*bin_size]
+        data_uncertainty_bin_acc.append(get_mean_score(final_gt, final_pred, idx)[0])
+        data_uncertainty_bin_f1.append(get_mean_score(final_gt, final_pred, idx)[1])
+    
+    x = np.arange(number_of_bins) / number_of_bins
+
     plt.figure()
-    plt.plot(all_ratio_accept, all_f1)
-    plt.xlabel('Accept ratio', fontsize=16)
-    plt.ylabel('Average F1', fontsize=16)
-    for i in range(len(all_thresh)):
-        x = all_ratio_accept[i]
-        y = all_f1[i]
-        plt.scatter(x, y, c='r')
-        plt.annotate('{:.3f}'.format(all_thresh[i]), xy=(x, y), xytext=(5, 2), textcoords='offset points', ha='left', va='top')
-
+    plt.plot(x, total_uncertainty_bin_acc, label='Total uncertainty', color='r')
+    plt.plot(x, model_uncertainty_bin_acc, label='Model uncertainty', color='g')
+    plt.plot(x, data_uncertainty_bin_acc, label='Data uncertainty', color='b')
+    plt.xlabel('Uncertainty percentile', fontsize=16)
+    plt.ylabel('Accuracy', fontsize=16)
+    plt.legend()
     plt.tight_layout()
-    plt.savefig('img/ratio.pdf')        
-        
-def exp3(final_uncertainty, thresh):
-    """
-    prediction with rejection
-    """
-    reject_idx = final_uncertainty > thresh
-    accept_idx = ~reject_idx
-    ratio_reject = np.sum(reject_idx)/len(reject_idx)
-    ratio_accept = 1 - ratio_reject
+    plt.savefig('img/uncertainty_acc.pdf')
 
-    fig, ax = plt.subplots(1, 2, figsize=(8, 4))
-    cm = get_confusion_matrix_precision(final_gt[accept_idx], final_pred[accept_idx], normalized=True)
-    im = ax[0].imshow(cm, cmap='Blues', vmin=0, vmax=1)
-    ax[0].set_title('accepted samples, ratio: {:.4f}'.format(ratio_accept))
-    ax[0].set_xlabel('Predicted Label', fontsize=16)
-    ax[0].set_ylabel('Reference Label', fontsize=16)
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax[0].text(j, i, '{:.2f}'.format(cm[i, j]), ha="center", va="center", color="k")
-    cm = get_confusion_matrix_precision(final_gt[reject_idx], final_pred[reject_idx], normalized=True)
-    ax[1].imshow(cm, cmap='Blues', vmin=0, vmax=1)
-    ax[1].set_title('rejected samples, ratio: {:.4f}'.format(ratio_reject))
-    ax[1].set_xlabel('Predicted Label', fontsize=16)
-    ax[1].set_ylabel('Reference Label', fontsize=16)
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax[1].text(j, i, '{:.2f}'.format(cm[i, j]), ha="center", va="center", color="k")
-
+    plt.figure()
+    plt.plot(x, total_uncertainty_bin_f1, label='Total uncertainty', color='r')
+    plt.plot(x, model_uncertainty_bin_f1, label='Model uncertainty', color='g')
+    plt.plot(x, data_uncertainty_bin_f1, label='Data uncertainty', color='b')
+    plt.xlabel('Uncertainty percentile', fontsize=16)
+    plt.ylabel('F1-score', fontsize=16)
+    plt.legend()
     plt.tight_layout()
-    plt.savefig('img/groups.pdf')        
-    
-def plot_case_study(ecg_data, model_pred_prob, final_gt, final_pred, topk, label_map, case_type):
-    """
-    Plots case studies for low and high uncertainty predictions.
-    """
-    for i in range(topk):
-        model_pred_prob[i][0] = 0.001 if model_pred_prob[i][0] == 0 else model_pred_prob[i][0]
-        model_pred_prob[i][1] = 0.001 if model_pred_prob[i][1] == 0 else model_pred_prob[i][1]
-        model_pred_prob[i][2] = 0.001 if model_pred_prob[i][2] == 0 else model_pred_prob[i][2]
-        model_pred_prob[i][3] = 0.001 if model_pred_prob[i][3] == 0 else model_pred_prob[i][3]
-        model_pred_prob[i][4] = 0.001 if model_pred_prob[i][4] == 0 else model_pred_prob[i][4]
-        model_pred_prob[i][5] = 0.001 if model_pred_prob[i][5] == 0 else model_pred_prob[i][5]
-        model_pred_prob[i][6] = 0.001 if model_pred_prob[i][6] == 0 else model_pred_prob[i][6]
-        model_pred_prob[i][7] = 0.001 if model_pred_prob[i][7] == 0 else model_pred_prob[i][7]
-        title = '[{} uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
-            case_type, label_map[final_gt[i]], label_map[final_pred[i]], 
-            model_pred_prob[i][0], model_pred_prob[i][1], model_pred_prob[i][2], 
-            model_pred_prob[i][3], model_pred_prob[i][4], model_pred_prob[i][5], 
-            model_pred_prob[i][6], model_pred_prob[i][7], model_pred_prob[i][8])
-        plot_ecg(ecg_data[i], title)
-        plt.tight_layout()
-        plt.savefig('img/case_{}_{}.pdf'.format(case_type, i))
+    plt.savefig('img/uncertainty_f1.pdf')
 
-def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
-    """
-    Case studies: high uncertainty wrong, low uncertainty wrong
-    """
-    try:
-        with open('data/model_pred_prob_nodata.pkl', 'rb') as fin:
-            res = pickle.load(fin)
-    except FileNotFoundError:
-        print("File not found: data/model_pred_prob_nodata.pkl")
-        return
-    except pickle.UnpicklingError:
-        print("Error loading pickle file: data/model_pred_prob_nodata.pkl")
-        return
-    
-    if 'test_data' not in res:
-        print("'test_data' key not found in the pickle file.")
-        return
-    
-    ecg_data = res['test_data']
+def main():
+    final_gt, model_pred_prob, mc_pred_prob = load_gt_and_pred()
 
-    wrong_index = (final_gt != final_pred)
-    tmp_uncertainty = final_uncertainty[wrong_index]
-    tmp_ecg_data = ecg_data[wrong_index]
-    tmp_model_pred_prob = model_pred_prob[wrong_index]
-    tmp_final_gt = final_gt[wrong_index]
-    tmp_final_pred = final_pred[wrong_index]
+    ### predicted label: (1166,)
+    final_pred = np.argmax(model_pred_prob, axis=-1)
+
+    ### get f1-score for each class
+    f1_list = get_report(final_gt, final_pred)
     
-    # Plot low uncertainty wrong cases
-    low_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[:topk]
-    out_ecg_data = tmp_ecg_data[low_uncertainty_wrong_topk]
-    out_model_pred_prob = tmp_model_pred_prob[low_uncertainty_wrong_topk]
-    out_final_gt = tmp_final_gt[low_uncertainty_wrong_topk]
-    out_final_pred = tmp_final_pred[low_uncertainty_wrong_topk]
-    plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
-                    topk, label_map, "Low")
+    ### get confusion matrix image
+    get_confusion_matrix_image(final_gt, final_pred)
+
+    ### compute uncertainty
+    total_uncertainty, model_uncertainty, expected_data_uncertainty = compute_uncertainty(mc_pred_prob)
+
+    ### how the overall f1 score changes with respect to model/data uncertainty
+    exp2(total_uncertainty, model_uncertainty, expected_data_uncertainty, final_gt, final_pred, f1_list)
     
-    # Plot high uncertainty wrong cases
-    high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
-    out_ecg_data = tmp_ecg_data[high_uncertainty_wrong_topk]
-    out_model_pred_prob = tmp_model_pred_prob[high_uncertainty_wrong_topk]
-    out_final_gt = tmp_final_gt[high_uncertainty_wrong_topk]
-    out_final_pred = tmp_final_pred[high_uncertainty_wrong_topk]
-    plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
-                    topk, label_map, "High")
-    
+    ### compare model_uncertainty and expected_data_uncertainty by class
+    exp1(model_uncertainty, expected_data_uncertainty, final_gt, final_pred, f1_list)
     
 if __name__ == "__main__":
+    main()
+
 
     ### load data
     final_gt, model_pred_prob, mc_pred_prob = load_gt_and_pred()
