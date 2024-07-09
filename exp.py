@@ -72,7 +72,7 @@ def plot_ecg(data, title='', fs=500):
     return fig
 
 def get_report(gt, pred):
-    tmp_report = classification_report(gt, pred, output_dict=True, zero_division=0)
+    tmp_report = classification_report(y_true, y_pred, zero_division=1)
     label_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     f1_list = []
     for i in label_list:
@@ -263,7 +263,7 @@ def exp3(final_uncertainty, thresh):
     plt.tight_layout()
     plt.savefig('img/groups.pdf')        
     
-def plot_case_study(ecg_data, model_pred_prob, final_gt, final_pred, uncertainty_level, topk, label_map, case_type):
+def plot_case_study(ecg_data, model_pred_prob, final_gt, final_pred, topk, label_map, case_type):
     """
     Plots case studies for low and high uncertainty predictions.
     """
@@ -311,7 +311,7 @@ def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     out_final_gt = tmp_final_gt[low_uncertainty_wrong_topk]
     out_final_pred = tmp_final_pred[low_uncertainty_wrong_topk]
     plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
-                    tmp_uncertainty, topk, label_map, "Low")
+                    topk, label_map, "Low")
     
     # Plot high uncertainty wrong cases
     high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
@@ -320,7 +320,7 @@ def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     out_final_gt = tmp_final_gt[high_uncertainty_wrong_topk]
     out_final_pred = tmp_final_pred[high_uncertainty_wrong_topk]
     plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
-                    tmp_uncertainty, topk, label_map, "High")
+                    topk, label_map, "High")
     
     
 if __name__ == "__main__":
