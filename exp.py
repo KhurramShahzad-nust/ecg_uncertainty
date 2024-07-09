@@ -268,6 +268,14 @@ def plot_case_study(ecg_data, model_pred_prob, final_gt, final_pred, topk, label
     Plots case studies for low and high uncertainty predictions.
     """
     for i in range(topk):
+        model_pred_prob[i][0] = 0.001 if model_pred_prob[i][0] == 0 else model_pred_prob[i][0]
+        model_pred_prob[i][1] = 0.001 if model_pred_prob[i][1] == 0 else model_pred_prob[i][1]
+        model_pred_prob[i][2] = 0.001 if model_pred_prob[i][2] == 0 else model_pred_prob[i][2]
+        model_pred_prob[i][3] = 0.001 if model_pred_prob[i][3] == 0 else model_pred_prob[i][3]
+        model_pred_prob[i][4] = 0.001 if model_pred_prob[i][4] == 0 else model_pred_prob[i][4]
+        model_pred_prob[i][5] = 0.001 if model_pred_prob[i][5] == 0 else model_pred_prob[i][5]
+        model_pred_prob[i][6] = 0.001 if model_pred_prob[i][6] == 0 else model_pred_prob[i][6]
+        model_pred_prob[i][7] = 0.001 if model_pred_prob[i][7] == 0 else model_pred_prob[i][7]
         title = '[{} uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
             case_type, label_map[final_gt[i]], label_map[final_pred[i]], 
             model_pred_prob[i][0], model_pred_prob[i][1], model_pred_prob[i][2], 
