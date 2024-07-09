@@ -72,7 +72,7 @@ def plot_ecg(data, title='', fs=500):
     return fig
 
 def get_report(gt, pred):
-    tmp_report = classification_report(gt, pred, output_dict=True)
+    tmp_report = classification_report(gt, pred, output_dict=True, zero_division=0)
     label_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     f1_list = []
     for i in label_list:
@@ -265,11 +265,22 @@ def exp3(final_uncertainty, thresh):
     
 def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     """
-    case studies, high uncertainty wrong, low uncertainty wrong
+    Case studies, high uncertainty wrong, low uncertainty wrong
     """
-
-    with open('data/model_pred_prob_nodata.pkl', 'rb') as fin:
-        res = pickle.load(fin)
+    try:
+        with open('data/model_pred_prob_nodata.pkl', 'rb') as fin:
+            res = pickle.load(fin)
+    except FileNotFoundError:
+        print("File not found: data/model_pred_prob_nodata.pkl")
+        return
+    except pickle.UnpicklingError:
+        print("Error loading pickle file: data/model_pred_prob_nodata.pkl")
+        return
+    
+    if 'test_data' not in res:
+        print("'test_data' key not found in the pickle file.")
+        return
+    
     ecg_data = res['test_data']
 
     wrong_index = (final_gt != final_pred)
@@ -285,10 +296,30 @@ def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     out_final_gt = tmp_final_gt[low_uncertainty_wrong_topk]
     out_final_pred = tmp_final_pred[low_uncertainty_wrong_topk]
     for i in range(topk):
-        title = '[Low uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(label_map[out_final_gt[i]], label_map[out_final_pred[i]], out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
+        title = '[Low uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
+            label_map[out_final_gt[i]], label_map[out_final_pred[i]], 
+            out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], 
+            out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], 
+            out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
         plot_ecg(out_ecg_data[i], title)
         plt.tight_layout()
         plt.savefig('img/case_low_{}.pdf'.format(i))
+    
+    high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
+    out_ecg_data = tmp_ecg_data[high_uncertainty_wrong_topk]
+    out_model_pred_prob = tmp_model_pred_prob[high_uncertainty_wrong_topk]
+    out_final_gt = tmp_final_gt[high_uncertainty_wrong_topk]
+    out_final_pred = tmp_final_pred[high_uncertainty_wrong_topk]
+    for i in range(topk):
+        title = '[High uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
+            label_map[out_final_gt[i]], label_map[out_final_pred[i]], 
+            out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], 
+            out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], 
+            out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
+        fig = plot_ecg(out_ecg_data[i], title)
+        plt.tight_layout()
+        plt.savefig('img/case_high_{}.pdf'.format(i))
+
     
     high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
     out_ecg_data = tmp_ecg_data[high_uncertainty_wrong_topk]
