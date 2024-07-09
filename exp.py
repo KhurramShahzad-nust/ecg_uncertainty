@@ -263,9 +263,23 @@ def exp3(final_uncertainty, thresh):
     plt.tight_layout()
     plt.savefig('img/groups.pdf')        
     
+def plot_case_study(ecg_data, model_pred_prob, final_gt, final_pred, uncertainty_level, topk, label_map, case_type):
+    """
+    Plots case studies for low and high uncertainty predictions.
+    """
+    for i in range(topk):
+        title = '[{} uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
+            case_type, label_map[final_gt[i]], label_map[final_pred[i]], 
+            model_pred_prob[i][0], model_pred_prob[i][1], model_pred_prob[i][2], 
+            model_pred_prob[i][3], model_pred_prob[i][4], model_pred_prob[i][5], 
+            model_pred_prob[i][6], model_pred_prob[i][7], model_pred_prob[i][8])
+        plot_ecg(ecg_data[i], title)
+        plt.tight_layout()
+        plt.savefig('img/case_{}_{}.pdf'.format(case_type, i))
+
 def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     """
-    Case studies, high uncertainty wrong, low uncertainty wrong
+    Case studies: high uncertainty wrong, low uncertainty wrong
     """
     try:
         with open('data/model_pred_prob_nodata.pkl', 'rb') as fin:
@@ -290,47 +304,23 @@ def exp4(final_uncertainty, topk, model_pred_prob, final_gt, final_pred):
     tmp_final_gt = final_gt[wrong_index]
     tmp_final_pred = final_pred[wrong_index]
     
+    # Plot low uncertainty wrong cases
     low_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[:topk]
     out_ecg_data = tmp_ecg_data[low_uncertainty_wrong_topk]
     out_model_pred_prob = tmp_model_pred_prob[low_uncertainty_wrong_topk]
     out_final_gt = tmp_final_gt[low_uncertainty_wrong_topk]
     out_final_pred = tmp_final_pred[low_uncertainty_wrong_topk]
-    for i in range(topk):
-        title = '[Low uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
-            label_map[out_final_gt[i]], label_map[out_final_pred[i]], 
-            out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], 
-            out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], 
-            out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
-        plot_ecg(out_ecg_data[i], title)
-        plt.tight_layout()
-        plt.savefig('img/case_low_{}.pdf'.format(i))
+    plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
+                    tmp_uncertainty, topk, label_map, "Low")
     
+    # Plot high uncertainty wrong cases
     high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
     out_ecg_data = tmp_ecg_data[high_uncertainty_wrong_topk]
     out_model_pred_prob = tmp_model_pred_prob[high_uncertainty_wrong_topk]
     out_final_gt = tmp_final_gt[high_uncertainty_wrong_topk]
     out_final_pred = tmp_final_pred[high_uncertainty_wrong_topk]
-    for i in range(topk):
-        title = '[High uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(
-            label_map[out_final_gt[i]], label_map[out_final_pred[i]], 
-            out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], 
-            out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], 
-            out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
-        fig = plot_ecg(out_ecg_data[i], title)
-        plt.tight_layout()
-        plt.savefig('img/case_high_{}.pdf'.format(i))
-
-    
-    high_uncertainty_wrong_topk = np.argsort(tmp_uncertainty)[::-1][:topk]
-    out_ecg_data = tmp_ecg_data[high_uncertainty_wrong_topk]
-    out_model_pred_prob = tmp_model_pred_prob[high_uncertainty_wrong_topk]
-    out_final_gt = tmp_final_gt[high_uncertainty_wrong_topk]
-    out_final_pred = tmp_final_pred[high_uncertainty_wrong_topk]
-    for i in range(topk):
-        title = '[High uncertainty] Reference: {}, Prediction: {}\n N({:.4f}),AF({:.4f}),I-AVB({:.4f}),LBBB({:.4f}),RBBB({:.4f}),PAC({:.4f}),PVC({:.4f}),STD({:.4f}),STE({:.4f})'.format(label_map[out_final_gt[i]], label_map[out_final_pred[i]], out_model_pred_prob[i][0], out_model_pred_prob[i][1], out_model_pred_prob[i][2], out_model_pred_prob[i][3], out_model_pred_prob[i][4], out_model_pred_prob[i][5], out_model_pred_prob[i][6], out_model_pred_prob[i][7], out_model_pred_prob[i][8])
-        fig = plot_ecg(out_ecg_data[i], title)
-        plt.tight_layout()
-        plt.savefig('img/case_high_{}.pdf'.format(i))
+    plot_case_study(out_ecg_data, out_model_pred_prob, out_final_gt, out_final_pred, 
+                    tmp_uncertainty, topk, label_map, "High")
     
     
 if __name__ == "__main__":
